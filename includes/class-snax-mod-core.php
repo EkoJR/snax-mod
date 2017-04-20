@@ -128,7 +128,70 @@ class Snax_Mod_Core {
 	}*/
 
 	private function _add_hooks() {
-		// Add Snax Hooks
+		// snax_insert_vote( $vote_arr ) IN 'wp-content\plugins\snax\includes\votes\functions.php'
+		add_action( 'snax_vote_added', array( $this, 'hook_action_insert_vote' ) );
+	}
+
+	/**
+	 * DEFAULT Insert Vote.
+	 *
+	 * Main function for adding votes to Posts/Pages.
+	 *
+	 * @since 1.6.1
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 *
+	 * @param array $vote_arr Current vote being added.
+	 * @return boolean False if unsuccessful.
+	 */
+	public function hook_action_insert_vote( $vote_arr ) {
+		$defaults = array(
+			'post_id'   => get_the_ID(),
+			'author_id' => get_current_user_id(),
+			'vote'      => 1,
+		);
+
+		$vote_arr = wp_parse_args( $vote_arr, $defaults );
+
+		global $wpdb;
+		$table_name = $wpdb->prefix . snax_get_votes_table_name();
+
+		$post_date  = current_time( 'mysql' );
+		$ip_address = snax_get_ip_address();
+		$host = gethostbyaddr( $ip_address );
+
+		$affected_rows = $wpdb->insert(
+			$table_name,
+			array(
+				'post_id'     => $vote_arr['post_id'],
+				'vote'        => $vote_arr['vote'],
+				'author_id'   => $vote_arr['author_id'],
+				'author_ip'   => $ip_address ? $ip_address : '',
+				'author_host' => $host ? $host : '',
+				'date'        => $post_date,
+				'date_gmt'    => get_gmt_from_date( $post_date ),
+			),
+			array(
+				'%d',
+				'%d',
+				'%d',
+				'%s',
+				'%s',
+				'%s',
+				'%s',
+			)
+		);
+
+		if ( false === $affected_rows ) {
+			return new WP_Error( 'snax_insert_vote_failed', esc_html__( 'Could not insert new vote into the database!', 'snax' ) );
+		}
+
+		snax_update_votes_metadata( $vote_arr['post_id'] );
+
+		do_action( 'snax_vote_added', $vote_arr );
+
+		return true;
 	}
 }
 
