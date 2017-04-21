@@ -92,7 +92,8 @@ class Snax_Mod_Core {
 	}
 
 	private function _requires() {
-		
+		// Functions.
+		require_once( $this->plugin_dir . 'includes\functions.php' );
 	}
 
 	public function hook_activation() {
