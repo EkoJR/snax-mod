@@ -17,19 +17,70 @@
  * @since 1.6.1
  */
 class Snax_Mod_Core {
-
+	/**
+	 * Summary.
+	 *
+	 * @since 1.6.1
+	 * @access private
+	 * @var null $instance Description.
+	 */
 	private static $instance = null;
 
+	/**
+	 * Summary.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 * @var string $plugin_dir Description.
+	 */
 	public $plugin_dir;
 
+	/**
+	 * Summary.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 * @var string $plugin_url Description.
+	 */
 	public $plugin_url;
 
+	/**
+	 * Summary.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 * @var string $table_name Description.
+	 */
+	public $table_name;
+
+	/**
+	 * Summary.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 *
+	 * @return object self::$instance.
+	 */
 	public static function get_instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self;
 		}
 		return self::$instance;
 	}
+
+	/**
+	 * Constructor.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access private
+	 */
 	private function __construct() {
 		$this->plugin_dir = WP_PLUGIN_DIR . '/snax-mod/';
 		$this->plugin_url = WP_PLUGIN_URL . '/snax-mod/';
@@ -320,74 +371,34 @@ class Snax_Mod_Core {
 	}*/
 
 	/**
-	 * DEFAULT Insert Vote.
+	 * AJAX Vote on Item.
 	 *
-	 * Main function for adding votes to Posts/Pages.
+	 * Description.
 	 *
 	 * @since 1.6.1
+	 * @access public
 	 *
 	 * @see Function/method/class relied on
 	 * @link URL
+	 * @global object $_POST Through filters.
 	 *
-	 * @param array $vote_arr Current vote being added.
-	 * @return boolean False if unsuccessful.
+	 * @return void
 	 */
-	public function hook_action_insert_vote( $vote_arr ) {
-		$defaults = array(
-			'post_id'   => get_the_ID(),
-			'author_id' => get_current_user_id(),
-			'vote'      => 1,
-		);
-
-		$vote_arr = wp_parse_args( $vote_arr, $defaults );
-
-		global $wpdb;
-		$table_name = $wpdb->prefix . snax_get_votes_table_name();
-
-		$post_date  = current_time( 'mysql' );
-		$ip_address = snax_get_ip_address();
-		$host = gethostbyaddr( $ip_address );
-
-		$affected_rows = $wpdb->insert(
-			$table_name,
-			array(
-				'post_id'     => $vote_arr['post_id'],
-				'vote'        => $vote_arr['vote'],
-				'author_id'   => $vote_arr['author_id'],
-				'author_ip'   => $ip_address ? $ip_address : '',
-				'author_host' => $host ? $host : '',
-				'date'        => $post_date,
-				'date_gmt'    => get_gmt_from_date( $post_date ),
-			),
-			array(
-				'%d',
-				'%d',
-				'%d',
-				'%s',
-				'%s',
-				'%s',
-				'%s',
-			)
-		);
-
-		if ( false === $affected_rows ) {
-			return new WP_Error( 'snax_insert_vote_failed', esc_html__( 'Could not insert new vote into the database!', 'snax' ) );
-		}
-
-		snax_update_votes_metadata( $vote_arr['post_id'] );
-
-		do_action( 'snax_vote_added', $vote_arr );
-
-		return true;
-	}
-
-	function hook_ajax_vote_item() {
+	public function hook_ajax_vote_item() {
 		check_ajax_referer( 'snax-vote-item', 'security' );
 
 		// Sanitize item id.
 		$item_id = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
 
+		// TODO - Add post ID.
+		$wp_post_url = wp_get_referer();
+		$wp_post_id = (int) url_to_postid( $wp_post_url );
+		$wp_post_id_cached = wpcom_vip_url_to_postid( $wp_post_url );
+
 		if ( 0 === $item_id ) {
+			snax_ajax_response_error( 'Item id not set!' );
+			exit;
+		} elseif ( empty( $wp_post_id ) ) {
 			snax_ajax_response_error( 'Item id not set!' );
 			exit;
 		}
@@ -405,7 +416,8 @@ class Snax_Mod_Core {
 		// Sanitize type.
 		$type = filter_input( INPUT_POST, 'snax_vote_type', FILTER_SANITIZE_STRING );
 
-		if ( ! in_array( $type, array( 'upvote', 'downvote' ), true ) ) {
+		// Eko - Removed Downvoting as a valid vote.
+		if ( ! in_array( $type, array( 'upvote' ), true ) ) {
 			snax_ajax_response_error( 'Vote type is not allowed!' );
 			exit;
 		}
@@ -417,34 +429,35 @@ class Snax_Mod_Core {
 		}
 
 		// Update current vote.
-		if ( snax_user_voted( $item_id, $author_id ) ) {
+		if ( eko_user_voted_this_week( $item_id, $author_id ) ) {
+			// TODO - Add check if voted this week.
 			// User already upvoted and clicked upvote again, wants to remove vote.
 			if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
 				$voted = snax_remove_vote( $item_id, $author_id );
 
 				// User already downvoted and clicked downvote again, wants to remove vote.
-			} else if ( snax_user_downvoted( $item_id, $author_id ) && 'downvote' === $type ) {
+			} elseif ( snax_user_downvoted( $item_id, $author_id ) && 'downvote' === $type ) {
 				$voted = snax_remove_vote( $item_id, $author_id );
 
 				// User decided to vote opposite.
 			} else {
 				$voted = snax_toggle_vote( $item_id, $author_id );
 			}
-
-			// New vote.
-		} else {
+		} else { // New vote.
 			$new_vote = array(
 				'post_id'   => $item_id,
 				'author_id' => $author_id,
 			);
 
 			if ( 'upvote' === $type ) {
+				// CHANGE?
 				$voted = snax_upvote_item( $new_vote );
-			} else {
+			}/* else {
 				$voted = snax_downvote_item( $new_vote );
-			}
+			}*/
 		}
 
+		// On snax_upvote_item() fail.
 		if ( is_wp_error( $voted ) ) {
 			snax_ajax_response_error( sprintf( 'Failed to vote for item with id %d', $item_id ), array(
 				'error_code'    => esc_html( $voted->get_error_code() ),
@@ -462,4 +475,82 @@ class Snax_Mod_Core {
 		) );
 		exit;
 	}
+
+	/**
+	 * Hook Re-insert Vote.
+	 *
+	 * Main function for replacing votes in the database.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 * @global object $wpdb WP Db Query.
+	 *
+	 * @param array $vote_arr AJAX array that was passed earlier.
+	 * @return type Description.
+	 */
+	public function hook_action_reinsert_vote( $vote_arr ) {
+		global $wpdb;
+		$defaults = array(
+			'post_id'   => get_the_ID(),
+			'author_id' => get_current_user_id(),
+			'vote'      => 1,
+		);
+		$vote_arr = wp_parse_args( $vote_arr, $defaults );
+
+		$table_name = $wpdb->prefix . snax_get_votes_table_name();
+
+		// Grab Post ID Server-side.
+		$wp_post_url = wp_get_referer();
+		$wp_post_id = 0;
+		if ( ! empty( $wp_post_url ) ) {
+			$wp_post_id = (int) url_to_postid( $wp_post_url );
+		}
+
+		$post_date  = current_time( 'mysql' );
+		$ip_address = snax_get_ip_address();
+		$host = gethostbyaddr( $ip_address );
+
+		$unprep = "SELECT * FROM $table_name ORDER BY vote_id DESC LIMIT 1";
+		$last_row = $wpdb->get_row( $unprep );
+		// Replace(modifies or adds new) || Update(error if not set).
+		$affected_rows = $wpdb->replace(
+			$table_name,
+			array(
+				'vote_id'     => intval( $last_row->vote_id ),
+				'post_id'     => $vote_arr['post_id'],
+				'vote'        => $vote_arr['vote'],
+				'author_id'   => $vote_arr['author_id'],
+				'author_ip'   => $ip_address ? $ip_address : '',
+				'author_host' => $host ? $host : '',
+				'date'        => $post_date,
+				'date_gmt'    => get_gmt_from_date( $post_date ),
+				'wp_post_id'  => $wp_post_id,
+			),
+			array(
+				'%d',
+				'%d',
+				'%d',
+				'%d',
+				'%s',
+				'%s',
+				'%s',
+				'%s',
+				'%d',
+			)
+		);
+
+		if ( false === $affected_rows ) {
+			return new WP_Error( 'snax_insert_vote_failed', esc_html__( 'Could not insert new vote into the database!', 'snax' ) );
+		}
+
+		// snax_update_votes_metadata( $vote_arr['post_id'] );
+
+		return true;
+	}
+	
+	
+	
 }
