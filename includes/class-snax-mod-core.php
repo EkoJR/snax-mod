@@ -31,37 +31,43 @@ class Snax_Mod_Core {
 		return self::$instance;
 	}
 	private function __construct() {
-		// is_plugin_active( 'plugin-directory/plugin-file.php' )
-		//$this->_set_vars();
 		$this->plugin_dir = WP_PLUGIN_DIR . '/snax-mod/';
 		$this->plugin_url = WP_PLUGIN_URL . '/snax-mod/';
+		$this->table_name = 'snax_mod_votes';
 
-		$this->_requires();
+		include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+		if ( ! is_plugin_active( 'snax/snax.php' ) ) {
+			return new WP_Error( 'snax_mod_construct_failed', esc_html__( 'Snax plugin must be activated.', 'snax-mod' ) );
+		} else {
+			$this->_requires();
 
-		$this->_add_hooks();
+			$this->_add_hooks();
 
-		// Early Hook
-		//add_action( 'plugins_loaded', array( $this, 'hook_action_plugins_loaded' ) );
+			/*
+			// Early Hook
+			add_action( 'plugins_loaded', array( $this, 'hook_action_plugins_loaded' ) );
 
-		// Multilingual Support
-		//add_action( 'load_textdomain', array( $this, 'hook_action_load_textdomain' ) );
+			// Multilingual Support
+			add_action( 'load_textdomain', array( $this, 'hook_action_load_textdomain' ) );
 
-		// Plugin Init Hook
-		//add_action( 'init', array( $this, 'hook_action_init' ) );
+			// Plugin Init Hook
+			add_action( 'init', array( $this, 'hook_action_init' ) );
 
-		// After WordPress is fully loaded
-		//add_action( 'wp_loaded', array( $this, 'hook_action_wp_loaded' ) );
+			// After WordPress is fully loaded
+			add_action( 'wp_loaded', array( $this, 'hook_action_wp_loaded' ) );
 
-		// WordPress Footer
-		//add_action( 'wp_footer', array( $this, 'hook_action_wp_footer' ) );
-
-		if ( is_admin() ) {
-			// Plugin Admin Init Hook
-			//add_action( 'admin_init', array( $this, 'hook_action_admin_init' ) );
-
-			$file = $this->plugin_dir . 'snax-mod.php';
-			register_activation_hook( $file, array( 'Snax_Mod_Core', 'hook_activation' ) );
-			register_deactivation_hook( $file, array( 'Snax_Mod_Core', 'hook_deactivation' ) );
+			// WordPress Footer
+			add_action( 'wp_footer', array( $this, 'hook_action_wp_footer' ) );
+			*/
+			if ( is_admin() ) {
+				/*
+				// Plugin Admin Init Hook
+				add_action( 'admin_init', array( $this, 'hook_action_admin_init' ) );
+				*/
+				$file = $this->plugin_dir . 'snax-mod.php';
+				register_activation_hook( $file, array( $this, 'hook_activation' ) );
+				register_deactivation_hook( $file, array( $this, 'hook_deactivation' ) );
+			}
 		}
 	}
 
@@ -72,10 +78,11 @@ class Snax_Mod_Core {
 	 * object therefore, we don't want the object to be cloned.
 	 *
 	 * @since 1.0
-	 * @access protected || private
+	 * @access private
+	 * @return void
 	 */
 	private function __clone() {
-		// Cloning instances of the class is forbidden
+		// Cloning instances of the class is forbidden.
 		_doing_it_wrong( __FUNCTION__, __( 'Cheatin&#8217; huh?', 'snax_mod_core' ), '1.0' );
 	}
 
@@ -87,21 +94,205 @@ class Snax_Mod_Core {
 	 * @return void
 	 */
 	private function __wakeup() {
-		// Unserializing instances of the class is forbidden
+		// Unserializing instances of the class is forbidden.
 		_doing_it_wrong( __FUNCTION__, __( 'Cheatin&#8217; huh?', 'snax_mod_core' ), '1.0' );
 	}
 
+	/**
+	 * Required Files.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access private
+	 */
 	private function _requires() {
 		// Functions.
 		require_once( $this->plugin_dir . 'includes\functions.php' );
 	}
 
-	public function hook_activation() {
-		//$a01 = 'hi';
+	/**
+	 * Add Extension Hooks for Snax Mod/Extension.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access private
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 */
+	private function _add_hooks() {
+		// AJAX Hook for Voting on an Item
+		// '\plugins\snax\includes\core\hooks.php' && '\plugins\snax\includes\votes\ajax.php'.
+		add_action( 'wp_ajax_snax_vote_item', array( $this, 'hook_ajax_vote_item' ) );
+
+		// Hook to replace vote that was added.
+		// snax_insert_vote( $vote_arr ) IN 'wp-content\plugins\snax\includes\votes\functions.php'.
+		add_action( 'snax_vote_added', array( $this, 'hook_action_reinsert_vote' ) );
 	}
 
+	/**
+	 * Plugin Activation.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 * @global object $wpdb WP Db Query.
+	 *
+	 * @return boolean If successful.
+	 */
+	public function hook_activation() {
+		/* ***** VOTES ***** */
+		global $wpdb;
+
+		$table_name      = $wpdb->prefix . 'snax_votes';
+		$charset_collate = $wpdb->get_charset_collate();
+		$column = $wpdb->get_row( "SELECT wp_post_id FROM $table_name" );
+
+		if ( ! isset( $column ) ) {
+			// Change to --> wp_cache_get( int|string $key, string $group = '', bool $force = false, bool $found = null )
+			$votes_db = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY vote_id DESC" );
+
+			$votes_db_mod = $this->update_votes_db_sql_column( $votes_db );
+
+			$r01 = $wpdb->query( "ALTER TABLE $table_name ADD wp_post_id bigint(20) NOT NULL" );
+
+			foreach ( $votes_db_mod as $key => $vote_mod ) {
+				$affected_rows = $wpdb->replace(
+					$table_name,
+					array(
+						'vote_id'     => (int) intval( $vote_mod->vote_id ),
+						'post_id'     => (int) intval( $vote_mod->post_id ),
+						'vote'        => (int) intval( $vote_mod->vote ),
+						'author_id'   => (int) intval( $vote_mod->author_id ),
+						'author_ip'   => (string) $vote_mod->author_ip,
+						'author_host' => (string) $vote_mod->author_host,
+						'date'        => (string) $vote_mod->date,
+						'date_gmt'    => (string) $vote_mod->date_gmt,
+						'wp_post_id'  => (int) intval( $vote_mod->wp_post_id ),
+					),
+					array(
+						'%d',
+						'%d',
+						'%d',
+						'%d',
+						'%s',
+						'%s',
+						'%s',
+						'%s',
+						'%d',
+					)
+				);
+
+				// If any fail, remove column and send error.
+				if ( false === $affected_rows ) {
+					$r01 = $wpdb->query( $wpdb->prepare( "ALTER TABLE $table_name DROP COLUMN wp_post_id" ) );
+					$e01 = new WP_Error( 'snax_mod_insert_vote_failed', esc_html__( 'Could not insert new vote into the database!', 'snax_mod' ) );
+
+					return false;
+				}
+			}
+		}// End if().
+		return true;
+	}
+
+	/**
+	 * Plugin Deactivation.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access public
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 * @global object $wpdb WP Db Query.
+	 */
 	public function hook_deactivation() {
-		//$a01 = 'hi';
+		global $wpdb;
+
+		$table_name      = $wpdb->prefix . snax_get_votes_table_name();
+		$charset_collate = $wpdb->get_charset_collate();
+		$column = $wpdb->get_row( 'SELECT wp_post_id FROM ' . $table_name );
+
+		if ( isset( $column ) ) {
+			$wpdb->query( $wpdb->prepare( "ALTER TABLE $table_name DROP COLUMN wp_post_id" ) );
+		}
+	}
+
+	/**
+	 * Update wp_post_id in Votes Database Table.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access private
+	 *
+	 * @see Function/method/class relied on
+	 * @link URL
+	 *
+	 * @param array $votes_db SQL Snax Votes Database.
+	 * @return array Modified Votes Db Table.
+	 */
+	private function update_votes_db_sql_column( $votes_db ) {
+		$vote_defaults = array(
+			'vote_id'     => 0,
+			'post_id'     => 0,
+			'vote'        => 1,
+			'author_id'   => 0,
+			'author_ip'   => '',
+			'author_host' => '',
+			'date'        => '',
+			'date_gmt'    => '',
+			'wp_post_id'  => 0,
+		);
+
+		$votes_db_mod = array();
+		foreach ( $votes_db as $db_key => $vote ) {
+			$votes_db_mod[ $db_key ] = (object) $vote_defaults;
+			foreach ( $vote_defaults as $vote_key => $default_value ) {
+				if ( 'wp_post_id' === $vote_key ) {
+					$votes_db_mod[ $db_key ]->$vote_key = (string) $this->get_item_parent_id( $vote->post_id );
+				} elseif ( isset( $vote->$vote_key ) ) {
+					$votes_db_mod[ $db_key ]->$vote_key = $vote->$vote_key;
+				} else {
+					//$votes_db_mod[ $db_key ]->$vote_key = $default_value;
+				}
+			}
+		}
+
+		return $votes_db_mod;
+	}
+
+	/**
+	 * Get Item's Displayed paged.
+	 *
+	 * Description.
+	 *
+	 * @since 1.6.1
+	 * @access private
+	 *
+	 * @see WP_Query class
+	 * @link URL
+	 *
+	 * @param int $item_id Items index number.
+	 * @return int Post/Page (Parent) ID.
+	 */
+	private function get_item_parent_id( $item_id ) {
+		$default_args = array(
+			'p'         => $item_id,
+			'post_type' => apply_filters( 'snax_item_post_type', 'snax_item' ),
+		);
+
+		$items = new WP_Query( $default_args );
+
+		$parent_id = $items->post->post_parent;
+		return $parent_id;
 	}
 
 /*	public function hook_action_plugins_loaded() {
@@ -127,15 +318,6 @@ class Snax_Mod_Core {
 /*	public function hook_action_wp_footer() {
 		$this->add_hooks();
 	}*/
-
-	private function _add_hooks() {
-		// snax_insert_vote( $vote_arr ) IN 'wp-content\plugins\snax\includes\votes\functions.php'
-		add_action( 'snax_vote_added', array( $this, 'hook_action_insert_vote' ) );
-		
-		// \plugins\snax\includes\core\hooks.php
-		// \plugins\snax\includes\votes\ajax.php
-		add_action( 'wp_ajax_snax_vote_item', array($this, 'hook_ajax_vote_item' ) );
-	}
 
 	/**
 	 * DEFAULT Insert Vote.
