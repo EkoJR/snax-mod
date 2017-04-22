@@ -388,12 +388,15 @@ class Snax_Mod_Core {
 		check_ajax_referer( 'snax-vote-item', 'security' );
 
 		// Sanitize item id.
+		$a01 = INPUT_POST;
+		$a02 = FILTER_SANITIZE_NUMBER_INT;
+		
 		$item_id = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
 
+		// WHAT ARE THE OTHER $_POST'S?
 		// TODO - Add post ID.
 		$wp_post_url = wp_get_referer();
 		$wp_post_id = (int) url_to_postid( $wp_post_url );
-		$wp_post_id_cached = wpcom_vip_url_to_postid( $wp_post_url );
 
 		if ( 0 === $item_id ) {
 			snax_ajax_response_error( 'Item id not set!' );
@@ -429,20 +432,37 @@ class Snax_Mod_Core {
 		}
 
 		// Update current vote.
-		if ( eko_user_voted_this_week( $item_id, $author_id ) ) {
-			// TODO - Add check if voted this week.
+		// TODO - Add check if voted this week.
+		if ( eko_user_voted_this_list_week( $item_id, $author_id, $wp_post_id ) ) {
 			// User already upvoted and clicked upvote again, wants to remove vote.
 			if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
 				$voted = snax_remove_vote( $item_id, $author_id );
-
-				// User already downvoted and clicked downvote again, wants to remove vote.
-			} elseif ( snax_user_downvoted( $item_id, $author_id ) && 'downvote' === $type ) {
-				$voted = snax_remove_vote( $item_id, $author_id );
-
-				// User decided to vote opposite.
-			} else {
-				$voted = snax_toggle_vote( $item_id, $author_id );
+			} 
+			/* REMOVED OLD CODE - Since Downvoting is no longer relevant.
+			elseif ( snax_user_downvoted( $item_id, $author_id ) && 'downvote' === $type ) {
+				// ELSEIF User already downvoted and clicked downvote again, 
+				// wants to remove vote.
+				// NOT ALLOWED.
+				snax_ajax_response_error( 'Vote type is not allowed!' );
+				exit;
+				/*
+				 * OLD
+				 * User decided to vote opposite.
+				 * $voted = snax_remove_vote( $item_id, $author_id );
+				 *//*
 			}
+			else {
+				// NOT ALLOWED.
+				snax_ajax_response_error( 'Vote type is not allowed!' );
+				exit;
+				/*
+				 * OLD
+				 * User decides to vote opposite (up/down)
+				 * $voted = snax_toggle_vote( $item_id, $author_id );
+				 *//*
+				
+			}
+			*/
 		} else { // New vote.
 			$new_vote = array(
 				'post_id'   => $item_id,

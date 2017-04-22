@@ -129,15 +129,15 @@ function eko_get_votes_db( $arg = array() ) {
  *
  * @return bool
  */
-function eko_user_voted_this_week( $item_id, $user_id ) {
+function eko_user_voted_this_list_week( $item_id, $user_id, $wp_post_id ) {
 	// Guest voting disabled.
 	if ( 0 === $user_id && ! snax_guest_voting_is_enabled() ) {
 		return false;
 	}
 
-	// Guest voting enabled.
+	// IF Guest voting enabled.
 	if ( 0 === $user_id && snax_guest_voting_is_enabled() ) {
-		// Read cookie setn by client.
+		// Read cookie sent by client.
 		$vote_cookie = filter_input( INPUT_POST, 'snax_user_voted', FILTER_SANITIZE_STRING );
 
 		// If not sent, read cookie from server.
@@ -147,9 +147,9 @@ function eko_user_voted_this_week( $item_id, $user_id ) {
 
 		switch ( $vote_cookie ) {
 			case 'upvote':
-				return snax_get_upvote_value();
-			case 'downvote':
-				return snax_get_downvote_value();
+				return 1;
+			//case 'downvote':
+				//return -1;
 			default:
 				return false;
 		}
@@ -158,19 +158,22 @@ function eko_user_voted_this_week( $item_id, $user_id ) {
 	// User logged in.
 	global $wpdb;
 	// 'wp_snax_votes'
-	$votes_table_name = $wpdb->prefix . snax_get_votes_table_name();
+	$votes_table_name = $wpdb->prefix . 'snax_votes';//snax_get_votes_table_name();
 
-	$vote = $wpdb->get_var(
-		$wpdb->prepare(
+	$prep = $wpdb->prepare(
 			"SELECT vote
 			FROM $votes_table_name
-			WHERE post_id = %d AND author_id = %d  AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)
+			WHERE post_id = %d AND author_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)
 			ORDER BY vote_id DESC
 			LIMIT 1",
 			$item_id,
-			$user_id
-		)
-	);
+			$user_id,
+			$wp_post_id
+		);
+	$vote = $wpdb->get_var( $prep );
 
+	if ( is_null( $vote ) ) {
+		return false;
+	}
 	return (boolean) $vote;
 }
