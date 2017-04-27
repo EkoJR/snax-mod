@@ -433,10 +433,11 @@ class Snax_Mod_Core {
 
 		// Update current vote.
 		// TODO - Add check if voted this week.
-		if ( eko_user_voted_this_list_week( $item_id, $author_id, $wp_post_id ) ) {
+		if ( snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id ) ) {
 			// User already upvoted and clicked upvote again, wants to remove vote.
 			if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
-				$voted = snax_remove_vote( $item_id, $author_id );
+				// TODO/FIXME - This is removing past votes rather than recent ones.
+				$voted = snax_mod_remove_vote( $item_id, $author_id );
 			} 
 			/* REMOVED OLD CODE - Since Downvoting is no longer relevant.
 			elseif ( snax_user_downvoted( $item_id, $author_id ) && 'downvote' === $type ) {
@@ -487,7 +488,7 @@ class Snax_Mod_Core {
 		}
 
 		ob_start();
-		snax_render_voting_box( $item_id, $author_id );
+		snax_mod_render_voting_box( $item_id, $author_id );
 		$html = ob_get_clean();
 
 		snax_ajax_response_success( 'Vote added successfully.', array(
@@ -570,7 +571,33 @@ class Snax_Mod_Core {
 
 		return true;
 	}
-	
+
+	public function post_rank( $wp_post_id, $last_week = false ) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'snax_votes';
+		
+		if ( $last_week ) {
+			$prep = $wpdb->prepare( 'SELECT vote FROM %d WHERE wp_post_id = %d AND date > DATE_SUB(INTERVAL 1 WEEK, INTERVAL 2 WEEK)', $wp_post_id );
+		} else {
+			$prep = $wpdb->prepare( 'SELECT vote FROM %d WHERE wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)', $wp_post_id );
+		}
+		
+		$results = $wpdb->get_results( $prep );
+		
+	}
+
+	public function item_rank( $item_id, $wp_post_id, $last_week = false ) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'snax_votes';
+		
+		if ( $last_week ) {
+			$prep = $wpdb->prepare( 'SELECT vote FROM %d WHERE post_id = %d AND wp_post_id = %d AND date > DATE_SUB(INTERVAL 1 WEEK, INTERVAL 2 WEEK)', $item_id, $wp_post_id );
+		} else { // Current Week
+			$prep = $wpdb->prepare( 'SELECT vote FROM %d WHERE post_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)', $item_id, $wp_post_id );
+		}
+		
+		$results = $wpdb->get_results( $prep );
+	}
 	
 	
 }
