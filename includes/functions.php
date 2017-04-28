@@ -216,6 +216,7 @@ function snax_mod_remove_vote( $item_id, $user_id ) {
 
 	return true;
 }
+
 /**
  * Render upvote/downvote box
  *
@@ -223,7 +224,76 @@ function snax_mod_remove_vote( $item_id, $user_id ) {
  * @param int         $user_id              Options. User ID. Default is current user id.
  * @param string      $class                CSS class.
  */
-function snax_mod_render_voting_box( $post = null, $user_id = 0, $class = 'snax-voting-simple' ) {
+function snax_mod_render_voting_box( $post = null, $wp_post_id = 0, $user_id = 0, $class = 'snax-voting-simple' ) {
+	if ( snax_show_item_voting_box( $post ) ) {
+		$post = get_post( $post );
+
+		if ( 0 === $user_id ) {
+			$user_id = get_current_user_id();
+		}
+
+		$final_class = array(
+			'snax-voting',
+		);
+		$final_class = array_merge( $final_class, explode( ' ', $class ) );
+		?>
+		<div class="<?php echo implode( ' ', array_map( 'sanitize_html_class', $final_class ) ); ?>">
+			<?php
+			$snax_class = array(
+				'snax-voting-score'
+			);
+
+			$snax_voting_score = snax_get_voting_score( $post );
+			if ( 0 === $snax_voting_score ) {
+				$snax_class[] = 'snax-voting-score-0';
+			}
+			?>
+
+			<div class="<?php echo implode( ' ', array_map( 'sanitize_html_class', $snax_class ) ); ?>">
+				<div style="margin-bottom: 9px;">
+					<?php
+					printf( wp_kses_post( _n( '<strong>%d</strong> vote', '<strong>%d</strong> votes', (int) $snax_voting_score, 'snax' ) ), (int) $snax_voting_score );
+					?>
+				</div>
+			</div>
+
+			<?php
+			if ( snax_show_item_upvote_link( $post ) ) :
+				snax_mod_render_upvote_link( $post, $wp_post_id, $user_id );
+			endif;
+			?>
+
+			<?php
+			// Removed Downvoting
+			//if ( snax_show_item_downvote_link( $post ) ) :
+				//snax_render_downvote_link( $post, $user_id );
+			//endif;
+			?>
+
+			<div class="snax-voting-details">
+				<p><?php printf( esc_html__( 'Total votes: %d', 'snax' ), (int) snax_get_vote_count( $post ) ); ?></p>
+
+				<p><?php printf( esc_html__( 'Upvotes: %d', 'snax' ), (int) snax_get_upvote_count( $post ) ); ?></p>
+
+				<p><?php printf( esc_html__( 'Upvotes percentage: %f%%', 'snax' ), (float) snax_get_upvotes_percentage( $post ) ); ?></p>
+
+				<p><?php printf( esc_html__( 'Downvotes: %d', 'snax' ), (int) snax_get_downvote_count( $post ) ); ?></p>
+
+				<p><?php printf( esc_html__( 'Downvotes percentage: %f%%', 'snax' ), (float) snax_get_downvotes_percentage( $post ) ); ?></p>
+			</div>
+		</div>
+		<?php
+	}
+}
+
+/**
+ * Render upvote/downvote weekly  box
+ *snax_mod_render_upvote_link_weeks
+ * @param int|WP_Post $post                 Optional. Post ID or WP_Post object. Default is global `$post`.
+ * @param int         $user_id              Options. User ID. Default is current user id.
+ * @param string      $class                CSS class.
+ */
+function snax_mod_render_voting_box_weeks( $post = null, $user_id = 0, $class = 'snax-voting-simple' ) {
 	if ( snax_show_item_voting_box( $post ) ) {
 		$post = get_post( $post );
 
@@ -265,28 +335,15 @@ function snax_mod_render_voting_box( $post = null, $user_id = 0, $class = 'snax-
 			</div>
 
 			<?php
+			// TODO - Add post ID to Data Attr
 			if ( snax_show_item_upvote_link( $post ) ) :
 				snax_render_upvote_link( $post, $user_id );
+				//snax_mod_render_upvote_link( $post, $wp_post_id, $user_id );
 			endif;
 			?>
 
-			<?php
-			// Removed Downvoting
-			//if ( snax_show_item_downvote_link( $post ) ) :
-				//snax_render_downvote_link( $post, $user_id );
-			//endif;
-			?>
-
 			<div class="snax-voting-details">
-				<p><?php printf( esc_html__( 'Total votes: %d', 'snax' ), (int) snax_get_vote_count( $post ) ); /*?></p>
-
-				<p><?php printf( esc_html__( 'Upvotes: %d', 'snax' ), (int) snax_get_upvote_count( $post ) ); ?></p>
-
-				<p><?php printf( esc_html__( 'Upvotes percentage: %f%%', 'snax' ), (float) snax_get_upvotes_percentage( $post ) ); ?></p>
-
-				<p><?php printf( esc_html__( 'Downvotes: %d', 'snax' ), (int) snax_get_downvote_count( $post ) ); ?></p>
-
-				<p><?php printf( esc_html__( 'Downvotes percentage: %f%%', 'snax' ), (float) snax_get_downvotes_percentage( $post ) ); */?></p>
+				<p><?php printf( esc_html__( 'Total votes: %d', 'snax' ), (int) snax_get_vote_count( $post ) ); ?></p>
 			</div>
 		</div>
 		<?php
@@ -573,4 +630,255 @@ function snax_mod_get_items_ids( $post_id = 0 ) {
 	$ids = wp_list_pluck( $items, 'ID' );
 
 	return $ids;
+}
+
+/**
+ * Returns default items query args
+ *
+ * @param array $args Optional.
+ *
+ * @return array
+ */
+function snax_mod_get_items_query_args( $args = array() ) {
+	$defaults = array(
+		'post_type'      => snax_get_item_post_type(),
+		'post_parent'    => 0,
+		'orderby'        => array(
+			'meta_value_num' => 'DESC',
+			'menu_order'     => 'ASC',
+			'post_date'      => 'ASC',
+		),
+		'meta_key'       => '_snax_vote_score',
+		'posts_per_page' => - 1,
+	);
+
+	$args = wp_parse_args( $args, $defaults );
+
+	return apply_filters( 'snax_item_query_args', $args );
+}
+
+// This gets the vote/item WP_Post object.
+// Votes are assigned by using the post parent, which restricts the use of
+//     assigning multiple posts a vote can appear on. 
+/**
+ * Return all items assigned to post
+ *
+ * @param int|WP_Post $post_id          Optional. Post ID or WP_Post object. Default global $post.
+ * @param array       $args             Extra WP_Query arguments.
+ *
+ * @return array
+ */
+function snax_mod_get_items( $post_id = 0, $args = array() ) {
+	$post = get_post( $post_id );
+
+	$args = wp_parse_args( $args, array(
+		// TODO Change to carry multiple values
+		'post_parent' => $post->ID,
+	) );
+
+	/* ***** snax_get_items_query_args( $args ) ***** */
+	//$query_args = snax_get_items_query_args( $args );
+	$defaults = array(
+		'post_type'      => snax_get_item_post_type(),
+		'post_parent'    => 0,
+		'orderby'        => array(
+			'meta_value_num' => 'DESC',
+			'menu_order'     => 'ASC',
+			'post_date'      => 'ASC',
+		),
+		'meta_key'       => '_snax_vote_score',
+		'posts_per_page' => - 1,
+	);
+
+	$args = wp_parse_args( $args, $defaults );
+
+	$query_args = apply_filters( 'snax_item_query_args', $args );
+	/* ********************************************** */
+
+
+	$items = get_posts( $query_args );
+
+	return $items;
+}
+
+
+/**
+ * Set up items query
+ *
+ * @param string $parent_format         Format of item parent (image | embed | gallery | list).
+ * @param string $origin                Origin type ( all | contribution | post ).
+ * @param array  $args                  WP Query extra args.
+ *
+ * @return WP_Query
+ */
+function snax_mod_get_items_query( $parent_format, $origin = 'all', $args = array() ) {
+	global $wp_rewrite;
+
+	$default_args = array(
+		'posts_per_page' => snax_get_items_per_page(),
+		'paged'          => snax_get_paged(),
+		'max_num_pages'  => false,
+		'meta_query'     => array(
+			array(
+				'key'     => '_snax_parent_format',
+				'value'   => $parent_format,
+				'compare' => '=',
+			),
+		),
+	);
+
+	// Restrict to origin.
+	if ( 'all' !== $origin ) {
+		$default_args['meta_query']['relation'] = 'AND';
+		$default_args['meta_query'][]           = array(
+			'key'     => '_snax_origin',
+			'value'   => $origin,
+			'compare' => '=',
+		);
+	}
+
+	// Posts query args.
+	$r = snax_get_items_query_args( $default_args );
+
+	// We get author items, not items assigned to a particular post.
+	unset( $r['post_parent'] );
+
+	$r = wp_parse_args( $args, $r );
+
+	// Make query.
+	$query = new WP_Query( $r );
+
+	// Limited the number of pages shown.
+	if ( ! empty( $r['max_num_pages'] ) ) {
+		$query->max_num_pages = $r['max_num_pages'];
+	}
+
+	// If no limit to posts per page, set it to the current post_count.
+	if ( - 1 === $r['posts_per_page'] ) {
+		$r['posts_per_page'] = $query->post_count;
+	}
+
+	// Add pagination values to query object.
+	$query->posts_per_page = $r['posts_per_page'];
+	$query->paged          = $r['paged'];
+
+	// Only add pagination if query returned results.
+	if ( ( (int) $query->post_count || (int) $query->found_posts ) && (int) $query->posts_per_page ) {
+
+		// Limit the number of topics shown based on maximum allowed pages.
+		if ( ( ! empty( $r['max_num_pages'] ) ) && $query->found_posts > $query->max_num_pages * $query->post_count ) {
+			$query->found_posts = $query->max_num_pages * $query->post_count;
+		}
+
+		$base = add_query_arg( 'paged', '%#%' );
+
+		$base = apply_filters( 'snax_items_pagination_base', $base, $r );
+
+		// Pagination settings with filter.
+		$pagination = apply_filters( 'snax_items_pagination', array(
+			'base'      => $base,
+			'format'    => '',
+			'total'     => $r['posts_per_page'] === $query->found_posts ? 1 : ceil( (int) $query->found_posts / (int) $r['posts_per_page'] ),
+			'current'   => (int) $query->paged,
+			'prev_text' => is_rtl() ? '&rarr;' : '&larr;',
+			'next_text' => is_rtl() ? '&larr;' : '&rarr;',
+			'mid_size'  => 1,
+		) );
+
+		// Add pagination to query object.
+		$query->pagination_links = paginate_links( $pagination );
+
+		// Remove first page from pagination.
+		$query->pagination_links = str_replace( $wp_rewrite->pagination_base . "/1/'", "'", $query->pagination_links );
+	}
+
+	snax()->items_query = $query;
+
+	return $query;
+}
+
+/**
+ * Render HTML formatted link to upvote action
+ *
+ * @param int|WP_Post $post                 Optional. Post ID or WP_Post object. Default is global `$post`.
+ * @param int         $user_id              Options. User ID. Default is current user id.
+ */
+function snax_mod_render_upvote_link( $post = null, $wp_post_id = 0, $user_id = 0 ) {
+	$link = snax_mod_get_upvote_link( $post, $wp_post_id, $user_id );
+
+	echo wp_kses( $link, array(
+		'a' => array(
+			'href'                      => array(),
+			'class'                     => array(),
+			'title'                     => array(),
+			'data-snax-mod-wp-post-id'  => array(),
+			'data-snax-item-id'         => array(),
+			'data-snax-author-id'       => array(),
+			'data-snax-nonce'           => array(),
+		),
+	) );
+}
+
+/**
+ * Return HTML formatted link to upvote action
+ *
+ * @param int|WP_Post $post                 Optional. Post ID or WP_Post object. Default is global `$post`.
+ * @param int         $user_id              Options. User ID. Default is current user id.
+ *
+ * @return string
+ */
+function snax_mod_get_upvote_link( $post = null, $wp_post_id = 0, $user_id = 0 ) {
+	$post = get_post( $post );
+
+	if ( 0 === $user_id ) {
+		$user_id = get_current_user_id();
+	}
+
+	$classes = array(
+		'snax-voting-upvote'
+	);
+
+	if ( snax_user_upvoted( $post->ID, $user_id ) ) {
+		$classes[] = 'snax-user-voted';
+	}
+
+	$user = get_user_by( 'id', $user_id );
+
+	// User with this id doesn't exist.
+	if ( 0 !== $user_id && false === $user ) {
+		return '';
+	}
+
+	// User exists.
+	if ( $user ) {
+		// Is logged-in but has no access.
+		if ( $user->exists() && ! user_can( $user_id, 'snax_vote_items', $post->ID ) ) {
+			return '';
+		}
+
+		// Is logged-out?
+		if ( ! $user->exists() ) {
+			$classes[] = 'snax-login-required';
+		}
+	} elseif ( snax_guest_voting_is_enabled() ) {
+		// Guest can vote.
+		$classes[] = 'snax-guest-voting';
+	} else {
+		// User not logged in.
+		$classes[] = 'snax-login-required';
+	}
+
+	//global $post;
+	//echo var_dump($post);
+	$link = sprintf(
+		'<a href="#" class="' . implode( ' ', array_map( 'sanitize_html_class', $classes ) ) . '" title="%s" data-snax-mod-wp-post-id="%d" data-snax-item-id="%d" data-snax-author-id="%d" data-snax-nonce="%s">%s</a>',
+		__( 'Upvote', 'snax' ),
+		$wp_post_id,
+		$post->ID,
+		$user_id,
+		wp_create_nonce( 'snax-vote-item' ),
+		__( 'Upvote', 'snax' )
+	);
+
+	return $link;
 }
