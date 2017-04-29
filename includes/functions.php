@@ -249,14 +249,6 @@ function snax_mod_render_voting_box( $post = null, $wp_post_id = 0, $user_id = 0
 			}
 			?>
 
-			<div class="<?php echo implode( ' ', array_map( 'sanitize_html_class', $snax_class ) ); ?>">
-				<div style="margin-bottom: 9px;">
-					<?php
-					printf( wp_kses_post( _n( '<strong>%d</strong> vote', '<strong>%d</strong> votes', (int) $snax_voting_score, 'snax' ) ), (int) $snax_voting_score );
-					?>
-				</div>
-			</div>
-
 			<?php
 			if ( snax_show_item_upvote_link( $post ) ) :
 				snax_mod_render_upvote_link( $post, $wp_post_id, $user_id );
@@ -270,6 +262,13 @@ function snax_mod_render_voting_box( $post = null, $wp_post_id = 0, $user_id = 0
 			//endif;
 			?>
 
+			<div class="<?php echo implode( ' ', array_map( 'sanitize_html_class', $snax_class ) ); ?>">
+				<div style="margin-bottom: 9px;">
+					<?php
+					printf( wp_kses_post( _n( '<strong>%d</strong> vote', '<strong>%d</strong> votes', (int) $snax_voting_score, 'snax' ) ), (int) $snax_voting_score );
+					?>
+				</div>
+			</div>
 			<div class="snax-voting-details">
 				<p><?php printf( esc_html__( 'Total votes: %d', 'snax' ), (int) snax_get_vote_count( $post ) ); ?></p>
 
