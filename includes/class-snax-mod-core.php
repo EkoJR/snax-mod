@@ -386,18 +386,29 @@ class Snax_Mod_Core {
 	 */
 	public function hook_ajax_vote_item() {
 		check_ajax_referer( 'snax-vote-item', 'security' );
-
+		/*
+		'action':               'snax_vote_item',
+		'security':             nonce,
+		'snax_mod_wp_post_id':  data.postId,
+		'snax_item_id':         data.itemId,
+		'snax_author_id':       data.authorId,
+		'snax_vote_type':       data.type,
+		'snax_user_voted':      ctx.readCookie( 'snax_vote_item_' + data.itemId )
+		*/
 		// Sanitize item id.
-		$a01 = INPUT_POST;
-		$a02 = FILTER_SANITIZE_NUMBER_INT;
+		//$a01 = INPUT_POST; //php key constant
+		//$a02 = FILTER_SANITIZE_NUMBER_INT;//php key constant
 		
-		$item_id = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
-
+		$item_id    = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
+		$wp_post_id = (int) filter_input( INPUT_POST, 'snax_mod_wp_post_id', FILTER_SANITIZE_NUMBER_INT );
 		// WHAT ARE THE OTHER $_POST'S?
 		// TODO - Add post ID.
-		$wp_post_url = wp_get_referer();
-		$wp_post_id = (int) url_to_postid( $wp_post_url );
-
+		//global $wp_query;
+		if ( empty( $wp_post_id ) ) {
+			$wp_post_url = wp_get_referer();
+			$wp_post_id = (int) url_to_postid( $wp_post_url );
+		}
+			
 		if ( 0 === $item_id ) {
 			snax_ajax_response_error( 'Item id not set!' );
 			exit;
@@ -488,7 +499,7 @@ class Snax_Mod_Core {
 		}
 
 		ob_start();
-		snax_mod_render_voting_box( $item_id, $author_id );
+		snax_mod_render_voting_box( $item_id, $wp_post_id, $author_id );
 		$html = ob_get_clean();
 
 		snax_ajax_response_success( 'Vote added successfully.', array(
