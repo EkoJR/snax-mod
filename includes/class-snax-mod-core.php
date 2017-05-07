@@ -159,7 +159,7 @@ class Snax_Mod_Core {
 	 */
 	private function _requires() {
 		// Functions.
-		require_once( $this->plugin_dir . 'includes\functions.php' );
+		require_once( $this->plugin_dir . 'includes/functions.php' );
 	}
 
 	/**
@@ -395,18 +395,16 @@ class Snax_Mod_Core {
 		'snax_vote_type':       data.type,
 		'snax_user_voted':      ctx.readCookie( 'snax_vote_item_' + data.itemId )
 		*/
-		// Sanitize item id.
-		//$a01 = INPUT_POST; //php key constant
-		//$a02 = FILTER_SANITIZE_NUMBER_INT;//php key constant
+		
 		
 		$item_id    = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
 		$wp_post_id = (int) filter_input( INPUT_POST, 'snax_mod_wp_post_id', FILTER_SANITIZE_NUMBER_INT );
-		// WHAT ARE THE OTHER $_POST'S?
-		// TODO - Add post ID.
-		//global $wp_query;
+
+		$is_post = false;
 		if ( empty( $wp_post_id ) ) {
 			$wp_post_url = wp_get_referer();
 			$wp_post_id = (int) url_to_postid( $wp_post_url );
+			$is_post = true;
 		}
 			
 		if ( 0 === $item_id ) {
@@ -444,37 +442,13 @@ class Snax_Mod_Core {
 
 		// Update current vote.
 		// TODO - Add check if voted this week.
+		$a01 = snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id );
 		if ( snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id ) ) {
 			// User already upvoted and clicked upvote again, wants to remove vote.
 			if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
 				// TODO/FIXME - This is removing past votes rather than recent ones.
 				$voted = snax_mod_remove_vote( $item_id, $author_id );
-			} 
-			/* REMOVED OLD CODE - Since Downvoting is no longer relevant.
-			elseif ( snax_user_downvoted( $item_id, $author_id ) && 'downvote' === $type ) {
-				// ELSEIF User already downvoted and clicked downvote again, 
-				// wants to remove vote.
-				// NOT ALLOWED.
-				snax_ajax_response_error( 'Vote type is not allowed!' );
-				exit;
-				/*
-				 * OLD
-				 * User decided to vote opposite.
-				 * $voted = snax_remove_vote( $item_id, $author_id );
-				 *//*
 			}
-			else {
-				// NOT ALLOWED.
-				snax_ajax_response_error( 'Vote type is not allowed!' );
-				exit;
-				/*
-				 * OLD
-				 * User decides to vote opposite (up/down)
-				 * $voted = snax_toggle_vote( $item_id, $author_id );
-				 *//*
-				
-			}
-			*/
 		} else { // New vote.
 			$new_vote = array(
 				'post_id'   => $item_id,
@@ -498,8 +472,15 @@ class Snax_Mod_Core {
 			exit;
 		}
 
+		//global $wp_query;
+		//$temp_query = new WP_Query();
 		ob_start();
-		snax_mod_render_voting_box_weeks( $item_id, $wp_post_id, $author_id );
+		if ( $is_post ) {
+			snax_mod_render_voting_box_weeks( $item_id, $wp_post_id, $author_id );
+		} else {
+			snax_mod_render_voting_box( $item_id, $wp_post_id, $author_id );
+		}
+		
 		$html = ob_get_clean();
 
 		snax_ajax_response_success( 'Vote added successfully.', array(

@@ -263,7 +263,7 @@ function snax_mod_render_voting_box( $post = null, $wp_post_id = 0, $user_id = 0
 			?>
 
 			<div class="<?php echo implode( ' ', array_map( 'sanitize_html_class', $snax_class ) ); ?>">
-				<div style="margin-bottom: 9px;">
+				<div>
 					<?php
 					printf( wp_kses_post( _n( '<strong>%d</strong><br>vote', '<strong>%d</strong><br>votes', (int) $snax_voting_score, 'snax' ) ), (int) $snax_voting_score );
 					?>
