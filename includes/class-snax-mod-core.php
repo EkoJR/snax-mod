@@ -499,7 +499,7 @@ class Snax_Mod_Core {
 		}
 
 		ob_start();
-		snax_mod_render_voting_box( $item_id, $wp_post_id, $author_id );
+		snax_mod_render_voting_box_weeks( $item_id, $wp_post_id, $author_id );
 		$html = ob_get_clean();
 
 		snax_ajax_response_success( 'Vote added successfully.', array(

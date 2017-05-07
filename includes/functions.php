@@ -265,7 +265,7 @@ function snax_mod_render_voting_box( $post = null, $wp_post_id = 0, $user_id = 0
 			<div class="<?php echo implode( ' ', array_map( 'sanitize_html_class', $snax_class ) ); ?>">
 				<div style="margin-bottom: 9px;">
 					<?php
-					printf( wp_kses_post( _n( '<strong>%d</strong> vote', '<strong>%d</strong> votes', (int) $snax_voting_score, 'snax' ) ), (int) $snax_voting_score );
+					printf( wp_kses_post( _n( '<strong>%d</strong><br>vote', '<strong>%d</strong><br>votes', (int) $snax_voting_score, 'snax' ) ), (int) $snax_voting_score );
 					?>
 				</div>
 			</div>
@@ -292,7 +292,7 @@ function snax_mod_render_voting_box( $post = null, $wp_post_id = 0, $user_id = 0
  * @param int         $user_id              Options. User ID. Default is current user id.
  * @param string      $class                CSS class.
  */
-function snax_mod_render_voting_box_weeks( $post = null, $user_id = 0, $class = 'snax-voting-simple' ) {
+function snax_mod_render_voting_box_weeks( $post = null, $wp_post_id = 0, $user_id = 0, $class = 'snax-voting-simple' ) {
 	if ( snax_show_item_voting_box( $post ) ) {
 		$post = get_post( $post );
 
@@ -336,8 +336,8 @@ function snax_mod_render_voting_box_weeks( $post = null, $user_id = 0, $class = 
 			<?php
 			// TODO - Add post ID to Data Attr
 			if ( snax_show_item_upvote_link( $post ) ) :
-				snax_render_upvote_link( $post, $user_id );
-				//snax_mod_render_upvote_link( $post, $wp_post_id, $user_id );
+				//snax_render_upvote_link( $post, $user_id );
+				snax_mod_render_upvote_link( $post, $wp_post_id, $user_id );
 			endif;
 			?>
 
@@ -700,7 +700,6 @@ function snax_mod_get_items( $post_id = 0, $args = array() ) {
 	return $items;
 }
 
-
 /**
  * Set up items query
  *
@@ -710,39 +709,42 @@ function snax_mod_get_items( $post_id = 0, $args = array() ) {
  *
  * @return WP_Query
  */
-function snax_mod_get_items_query( $parent_format, $origin = 'all', $args = array() ) {
+function snax_mod_get_items_query( $args = array() ) {
 	global $wp_rewrite;
-
+	
 	$default_args = array(
+		'post_type'      => snax_get_item_post_type(),
+		'post_parent'    => 0,
+		'orderby'        => array(
+			
+			'meta_value_num' => 'DESC',
+			'menu_order'     => 'ASC',
+			'post_date'      => 'ASC',
+		),
+		'meta_key'       => '_snax_vote_score',
 		'posts_per_page' => snax_get_items_per_page(),
 		'paged'          => snax_get_paged(),
 		'max_num_pages'  => false,
-		'meta_query'     => array(
-			array(
-				'key'     => '_snax_parent_format',
-				'value'   => $parent_format,
-				'compare' => '=',
-			),
-		),
+		//'meta_query'     => array(
+		//	'relation'   => 'AND',
+		//	array(
+		//		'key'     => '_snax_parent_format',
+		//		'value'   => $parent_format,
+		//		'compare' => '=',
+		//	),
+		//	array(
+		//		'key'     => '_snax_origin',
+		//		'value'   => 'all',//$origin,
+		//		'compare' => '=',
+		//	),
+		//),
 	);
 
-	// Restrict to origin.
-	if ( 'all' !== $origin ) {
-		$default_args['meta_query']['relation'] = 'AND';
-		$default_args['meta_query'][]           = array(
-			'key'     => '_snax_origin',
-			'value'   => $origin,
-			'compare' => '=',
-		);
-	}
-
-	// Posts query args.
-	$r = snax_get_items_query_args( $default_args );
 
 	// We get author items, not items assigned to a particular post.
-	unset( $r['post_parent'] );
+	//unset( $r['post_parent'] );
 
-	$r = wp_parse_args( $args, $r );
+	$r = wp_parse_args( $args, $default_args );
 
 	// Make query.
 	$query = new WP_Query( $r );
