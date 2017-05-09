@@ -129,7 +129,7 @@
  *
  * @return bool
  */
-function snax_mod_user_voted_this_list_week( $item_id, $user_id, $wp_post_id ) {
+function snax_mod_user_voted_this_item_week( $item_id, $user_id, $wp_post_id ) {
 	// Guest voting disabled.
 	if ( 0 === $user_id && ! snax_guest_voting_is_enabled() ) {
 		return false;
@@ -167,6 +167,81 @@ function snax_mod_user_voted_this_list_week( $item_id, $user_id, $wp_post_id ) {
 			ORDER BY vote_id DESC
 			LIMIT 1",
 			$item_id,
+			$user_id,
+			$wp_post_id
+		);
+//	$prep = $wpdb->prepare(
+//			"SELECT vote
+//			FROM $votes_table_name
+//			WHERE author_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)
+//			ORDER BY vote_id DESC
+//			LIMIT 1",
+//			$user_id,
+//			$wp_post_id
+//		);
+	$vote = $wpdb->get_var( $prep );
+
+	if ( is_null( $vote ) ) {
+		return false;
+	}
+	return (boolean) $vote;
+}
+
+/**
+ * True if user voted for an item this week
+ *
+ * @param int $item_id Item id.
+ * @param int $user_id User id.
+ *
+ * @return bool
+ */
+function snax_mod_user_voted_this_list_week( $item_id, $user_id, $wp_post_id ) {
+	// Guest voting disabled.
+	if ( 0 === $user_id && ! snax_guest_voting_is_enabled() ) {
+		return false;
+	}
+
+	// IF Guest voting enabled.
+	if ( 0 === $user_id && snax_guest_voting_is_enabled() ) {
+		// Read cookie sent by client.
+		$vote_cookie = filter_input( INPUT_POST, 'snax_user_voted', FILTER_SANITIZE_STRING );
+
+		// If not sent, read cookie from server.
+		if ( ! $vote_cookie ) {
+			$vote_cookie = filter_input( INPUT_COOKIE, 'snax_vote_item_' . $item_id, FILTER_SANITIZE_STRING );
+		}
+
+		switch ( $vote_cookie ) {
+			case 'upvote':
+				return 1;
+			//case 'downvote':
+				//return -1;
+			default:
+				return false;
+		}
+	}
+
+	// User logged in.
+	global $wpdb;
+	// 'wp_snax_votes'
+	$votes_table_name = $wpdb->prefix . 'snax_votes';//snax_get_votes_table_name();
+
+//	$prep = $wpdb->prepare(
+//			"SELECT vote
+//			FROM $votes_table_name
+//			WHERE post_id = %d AND author_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)
+//			ORDER BY vote_id DESC
+//			LIMIT 1",
+//			$item_id,
+//			$user_id,
+//			$wp_post_id
+//		);
+	$prep = $wpdb->prepare(
+			"SELECT vote
+			FROM $votes_table_name
+			WHERE author_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)
+			ORDER BY vote_id DESC
+			LIMIT 1",
 			$user_id,
 			$wp_post_id
 		);
@@ -325,10 +400,10 @@ function snax_mod_render_voting_box_weeks( $post = null, $wp_post_id = 0, $user_
 				</div>
 				<div style="margin-bottom: 9px;">
 					<div class="snax-mod-voting-score-last">
-						<strong><?php echo snax_mod_get_item_votes_amount_week( $post, true ) ?></strong><br>Last Week
+						<strong><?php echo snax_mod_get_item_votes_amount_week( $post, $wp_post_id, true ) ?></strong><br>Last Week
 					</div>
 					<div class="snax-mod-voting-score-current">
-						<strong><?php echo snax_mod_get_item_votes_amount_week( $post ) ?></strong><br>This Week
+						<strong><?php echo snax_mod_get_item_votes_amount_week( $post, $wp_post_id ) ?></strong><br>This Week
 					</div>
 				</div>
 			</div>
@@ -349,14 +424,17 @@ function snax_mod_render_voting_box_weeks( $post = null, $wp_post_id = 0, $user_
 	}
 }
 
-function snax_mod_get_item_votes_amount( $item_id, $last_week = false ) {
+function snax_mod_get_item_votes_amount( $item_id, $wp_post_id = 0, $last_week = false ) {
 	global $wp_query;
 	global $wpdb;
-	$wp_post_id = $wp_query->post->ID;
 	if ( empty( $wp_post_id ) ) {
-		$wp_post_url = wp_get_referer();
-		$wp_post_id = (int) url_to_postid( $wp_post_url );
+		$wp_post_id = $wp_query->post->ID;
+		if ( empty( $wp_post_id ) ) {
+			$wp_post_url = wp_get_referer();
+			$wp_post_id = (int) url_to_postid( $wp_post_url );
+		}
 	}
+		
 	
 	// Database table name.
 	$table_name = $wpdb->prefix . 'snax_votes';
@@ -381,15 +459,18 @@ function snax_mod_get_item_votes_amount( $item_id, $last_week = false ) {
 	return $vote_count;
 }
 
-function snax_mod_get_item_votes_amount_week( $item, $last_week = false ) {
+function snax_mod_get_item_votes_amount_week( $item, $wp_post_id = 0, $last_week = false ) {
 	global $wp_query;
 	global $wpdb;
 	// Get current/root post ID.
-	$wp_post_id = $wp_query->post->ID;
 	if ( empty( $wp_post_id ) ) {
-		$wp_post_url = wp_get_referer();
-		$wp_post_id = (int) url_to_postid( $wp_post_url );
+		$wp_post_id = $wp_query->post->ID;
+		if ( empty( $wp_post_id ) ) {
+			$wp_post_url = wp_get_referer();
+			$wp_post_id = (int) url_to_postid( $wp_post_url );
+		}
 	}
+		
 
 	$item_id = $item->ID;
 
@@ -586,8 +667,8 @@ function snax_mod_get_item_rank_position( $item = null, $last_week = false ) {
 	if ( true === $last_week ) { 
 		$items_arr = snax_mod_get_items_ids( $post_id );
 		$item_totals = array();
-		foreach ( $items_arr as $key => $item_ID ) {
-			$item_totals[ $item_ID ] = snax_mod_get_item_votes_amount( $item_ID, $last_week );
+		foreach ( $items_arr as $key => $item_id ) {
+			$item_totals[ $item_id ] = snax_mod_get_item_votes_amount( $item_id, $post_id, $last_week );
 		}
 		
 		// If item has votes (last week) then search list position.
@@ -812,6 +893,7 @@ function snax_mod_render_upvote_link( $post = null, $wp_post_id = 0, $user_id = 
 			'href'                      => array(),
 			'class'                     => array(),
 			'title'                     => array(),
+			'data-snax-mod-is-type'     => array(),
 			'data-snax-mod-wp-post-id'  => array(),
 			'data-snax-item-id'         => array(),
 			'data-snax-author-id'       => array(),
@@ -869,15 +951,29 @@ function snax_mod_get_upvote_link( $post = null, $wp_post_id = 0, $user_id = 0 )
 		$classes[] = 'snax-login-required';
 	}
 
+	global $wp_query;
+	$is_type = '';
+	$is_type = (string) filter_input( INPUT_POST, 'snax_mod_is_type', FILTER_SANITIZE_STRING );
+	
+	if ( empty( $is_type ) && $wp_query->is_singular ) {
+		$is_type = 'singular';
+	} elseif ( $wp_query->is_archive ) {
+		$is_type = 'archive';
+	} elseif ( $wp_query->is_category || $wp_query->is_tag ) {
+		$is_type = 'category';
+	} elseif ( $wp_query->is_home ) {
+		$is_type = 'home';
+	}
 	//global $post;
-	//echo var_dump($post);
+	//echo var_dump($post);data-snax-mod-is
 	$link = sprintf(
-		'<a href="#" class="' . implode( ' ', array_map( 'sanitize_html_class', $classes ) ) . '" title="%s" data-snax-mod-wp-post-id="%d" data-snax-item-id="%d" data-snax-author-id="%d" data-snax-nonce="%s">%s</a>',
+		'<a href="#" class="' . implode( ' ', array_map( 'sanitize_html_class', $classes ) ) . '" title="%s" data-snax-mod-wp-post-id="%d" data-snax-item-id="%d" data-snax-author-id="%d" data-snax-nonce="%s" data-snax-mod-is-type="%s">%s</a>',
 		__( 'Upvote', 'snax' ),
 		$wp_post_id,
 		$post->ID,
 		$user_id,
 		wp_create_nonce( 'snax-vote-item' ),
+		$is_type,
 		__( 'Upvote', 'snax' )
 	);
 
