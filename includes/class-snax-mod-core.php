@@ -176,7 +176,7 @@ class Snax_Mod_Core {
 	private function _add_hooks() {
 		// AJAX Hook for Voting on an Item
 		// '\plugins\snax\includes\core\hooks.php' && '\plugins\snax\includes\votes\ajax.php'.
-		add_action( 'wp_ajax_snax_vote_item', array( $this, 'hook_ajax_vote_item' ) );
+		add_action( 'wp_ajax_snax_vote_item', array( $this, 'hook_ajax_vote_item' ), 6 );
 
 		// Hook to replace vote that was added.
 		// snax_insert_vote( $vote_arr ) IN 'wp-content\plugins\snax\includes\votes\functions.php'.
@@ -389,6 +389,7 @@ class Snax_Mod_Core {
 		/*
 		'action':               'snax_vote_item',
 		'security':             nonce,
+		'snax_mod_is_type':     data.isType,
 		'snax_mod_wp_post_id':  data.postId,
 		'snax_item_id':         data.itemId,
 		'snax_author_id':       data.authorId,
@@ -396,9 +397,11 @@ class Snax_Mod_Core {
 		'snax_user_voted':      ctx.readCookie( 'snax_vote_item_' + data.itemId )
 		*/
 		
-		
+		global $wp_query;
+		$temp_query = new WP_Query();
 		$item_id    = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
 		$wp_post_id = (int) filter_input( INPUT_POST, 'snax_mod_wp_post_id', FILTER_SANITIZE_NUMBER_INT );
+		$is_type = (string) filter_input( INPUT_POST, 'snax_mod_is_type', FILTER_SANITIZE_STRING );
 
 		$is_post = false;
 		if ( empty( $wp_post_id ) ) {
@@ -442,12 +445,17 @@ class Snax_Mod_Core {
 
 		// Update current vote.
 		// TODO - Add check if voted this week.
-		$a01 = snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id );
+		//$a01 = snax_mod_user_voted_this_item_week( $item_id, $author_id, $wp_post_id );
+		//$a02 = snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id );
 		if ( snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id ) ) {
-			// User already upvoted and clicked upvote again, wants to remove vote.
-			if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
-				// TODO/FIXME - This is removing past votes rather than recent ones.
-				$voted = snax_mod_remove_vote( $item_id, $author_id );
+			if ( snax_mod_user_voted_this_item_week( $item_id, $author_id, $wp_post_id ) ) {
+				// User already upvoted and clicked upvote again, wants to remove vote.
+				if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
+					// TODO/FIXME - This is removing past votes rather than recent ones.
+					$voted = snax_mod_remove_vote( $item_id, $author_id );
+				}
+			} else {
+				//echo 'DID NOT VOTE';
 			}
 		} else { // New vote.
 			$new_vote = array(
@@ -475,7 +483,7 @@ class Snax_Mod_Core {
 		//global $wp_query;
 		//$temp_query = new WP_Query();
 		ob_start();
-		if ( $is_post ) {
+		if ( $is_post || 'singular' === $is_type ) {
 			snax_mod_render_voting_box_weeks( $item_id, $wp_post_id, $author_id );
 		} else {
 			snax_mod_render_voting_box( $item_id, $wp_post_id, $author_id );
