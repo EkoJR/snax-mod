@@ -265,15 +265,16 @@ class Snax_Mod_Core {
 	 * @global object $wpdb WP Db Query.
 	 */
 	public function hook_deactivation() {
-		global $wpdb;
+		//global $wpdb;
 
-		$table_name      = $wpdb->prefix . snax_get_votes_table_name();
-		$charset_collate = $wpdb->get_charset_collate();
-		$column = $wpdb->get_row( 'SELECT wp_post_id FROM ' . $table_name );
+		//$table_name      = $wpdb->prefix . snax_get_votes_table_name();
+		//$charset_collate = $wpdb->get_charset_collate();
+		//$column = $wpdb->get_row( 'SELECT wp_post_id FROM ' . $table_name );
 
-		if ( isset( $column ) ) {
-			$wpdb->query( $wpdb->prepare( "ALTER TABLE $table_name DROP COLUMN wp_post_id" ) );
-		}
+		// TODO - Add option to delete on deactivation.
+		//if ( isset( $column ) ) {
+			//$wpdb->query( $wpdb->prepare( "ALTER TABLE $table_name DROP COLUMN wp_post_id" ) );
+		//}
 	}
 
 	/**
