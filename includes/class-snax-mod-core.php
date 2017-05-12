@@ -526,6 +526,7 @@ class Snax_Mod_Core {
 
 		$table_name = $wpdb->prefix . snax_get_votes_table_name();
 
+		$wp_post_id = (int) filter_input( INPUT_POST, 'snax_mod_wp_post_id', FILTER_SANITIZE_NUMBER_INT );
 		if ( empty( $wp_post_id ) ) {
 			$wp_post_url = wp_get_referer();
 			$wp_post_id = (int) url_to_postid( $wp_post_url );
