@@ -446,17 +446,19 @@ class Snax_Mod_Core {
 
 		// Update current vote.
 		// TODO - Add check if voted this week.
-		//$a01 = snax_mod_user_voted_this_item_week( $item_id, $author_id, $wp_post_id );
-		//$a02 = snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id );
+		//$test01 = snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id );
+		//$test02 = snax_mod_user_voted_this_item_week( $item_id, $author_id, $wp_post_id );
+		$ajax_response = 'Vote added successfully.';
 		if ( snax_mod_user_voted_this_list_week( $item_id, $author_id, $wp_post_id ) ) {
 			if ( snax_mod_user_voted_this_item_week( $item_id, $author_id, $wp_post_id ) ) {
 				// User already upvoted and clicked upvote again, wants to remove vote.
 				if ( snax_user_upvoted( $item_id, $author_id ) && 'upvote' === $type ) {
 					// TODO/FIXME - This is removing past votes rather than recent ones.
 					$voted = snax_mod_remove_vote( $item_id, $author_id );
+					$ajax_response = 'Vote has been removed.';
 				}
 			} else {
-				//echo 'DID NOT VOTE';
+				$ajax_response = 'You already voted in this list. Come back next week to vote some more!';
 			}
 		} else { // New vote.
 			$new_vote = array(
@@ -492,7 +494,7 @@ class Snax_Mod_Core {
 		
 		$html = ob_get_clean();
 
-		snax_ajax_response_success( 'Vote added successfully.', array(
+		snax_ajax_response_success( $ajax_response, array(
 			'html' => $html,
 		) );
 		exit;
@@ -524,10 +526,8 @@ class Snax_Mod_Core {
 
 		$table_name = $wpdb->prefix . snax_get_votes_table_name();
 
-		// Grab Post ID Server-side.
-		$wp_post_url = wp_get_referer();
-		$wp_post_id = 0;
-		if ( ! empty( $wp_post_url ) ) {
+		if ( empty( $wp_post_id ) ) {
+			$wp_post_url = wp_get_referer();
 			$wp_post_id = (int) url_to_postid( $wp_post_url );
 		}
 
