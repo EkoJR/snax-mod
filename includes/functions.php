@@ -237,11 +237,11 @@ function snax_mod_user_voted_this_list_week( $item_id, $user_id, $wp_post_id ) {
 //			$wp_post_id
 //		);
 	$prep = $wpdb->prepare(
-			"SELECT vote
-			FROM $votes_table_name
-			WHERE author_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK)
-			ORDER BY vote_id DESC
-			LIMIT 1",
+			"SELECT vote " .
+			"FROM $votes_table_name " .
+			"WHERE author_id = %d AND wp_post_id = %d AND date > DATE_SUB(NOW(), INTERVAL 1 WEEK) " .
+			"ORDER BY vote_id DESC " .
+			"LIMIT 1",
 			$user_id,
 			$wp_post_id
 		);
