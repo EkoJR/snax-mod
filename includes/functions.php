@@ -619,17 +619,26 @@ function snax_mod_render_rank() {
 
 	
 	//snax_mod_status_img();
-	$divs['status'] = '<div class="snax-mod-item-rank-status">';
+	$status_icon = '';
+	//$status_text = '';
+	//$divs['status'] = '<div class="snax-mod-item-rank-status fa fa-arrow-circle-down fa-3x">';
 	if ( 0 === $position['last'] ) {
-		$divs['status'] .= 'NEW';
+		// NEW.
+		$status_icon = 'fa fa-plus fa-3x';
 	} elseif ( $position['current'] < $position['last'] ) {
-		$divs['status'] .= 'UP';
+		// UP.
+		$status_icon = 'fa fa-arrow-circle-up fa-3x';
 	} elseif ( $position['current'] > $position['last'] ) {
-		$divs['status'] .= 'DOWN';
+		// DOWN.
+		$status_icon = 'fa fa-arrow-circle-down fa-3x';
 	} else {
-		$divs['status'] .= 'SAME';
+		// SAME.
+		$status_icon = 'fa fa-arrows-h fa-3x';
 	}
-	$divs['status'] .= '</div>';
+	//$divs['status'] .= '</div>';
+	
+	$divs['status'] = '<div class="snax-mod-item-rank-status ' . $status_icon . '"></div>';
+	//$divs['status'] .= '';
 	
 	//$html .= '<div class="snax-mod-item-rank-position">';
 	

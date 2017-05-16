@@ -176,7 +176,8 @@ class Snax_Mod_Core {
 	private function _add_hooks() {
 		// AJAX Hook for Voting on an Item
 		// '\plugins\snax\includes\core\hooks.php' && '\plugins\snax\includes\votes\ajax.php'.
-		add_action( 'wp_ajax_snax_vote_item', array( $this, 'hook_ajax_vote_item' ), 6 );
+		add_action( 'wp_ajax_snax_vote_item', array( $this, 'hook_ajax_vote_item' ), 0 );
+		add_action( 'wp_ajax_nopriv_snax_vote_item', array( $this, 'hook_ajax_vote_item' ), 0 );
 
 		// Hook to replace vote that was added.
 		// snax_insert_vote( $vote_arr ) IN 'wp-content\plugins\snax\includes\votes\functions.php'.
@@ -399,7 +400,7 @@ class Snax_Mod_Core {
 		*/
 		
 		global $wp_query;
-		$temp_query = new WP_Query();
+		//$temp_query = new WP_Query();
 		$item_id    = (int) filter_input( INPUT_POST, 'snax_item_id', FILTER_SANITIZE_NUMBER_INT ); // Removes all illegal characters from a number.
 		$wp_post_id = (int) filter_input( INPUT_POST, 'snax_mod_wp_post_id', FILTER_SANITIZE_NUMBER_INT );
 		$is_type = (string) filter_input( INPUT_POST, 'snax_mod_is_type', FILTER_SANITIZE_STRING );
