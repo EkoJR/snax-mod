@@ -988,3 +988,46 @@ function snax_mod_get_upvote_link( $post = null, $wp_post_id = 0, $user_id = 0 )
 
 	return $link;
 }
+
+function snax_mod_render_item_thumbnail( $item ) {
+	$item = get_post( $item );
+
+	$embed_url = snax_get_first_url_in_content( $item );
+
+	$regex_match = '%^                    # Match any youtube URL
+		(?:https?://)?                    # Optional scheme. Either http or https
+		(?:
+			www\.                         # Optional www subdomain
+		  | m\.                           # Optional mobile subdomain
+		)?      
+		(?:                               # Group host alternatives
+		  youtu\.be/                      # Either youtu.be,
+		| youtube\.com                    # or youtube.com
+		  (?:                             # Group path alternatives
+		    /
+		  |	/embed/                       # Either /embed/
+		  | /v/                           # or /v/
+		  | /&v=/                         # or ?feature=youtu.be&v=NXwxHU2Q0bo
+		  | /watch\?v=                    # or /watch\?v=
+		  | /watch\?feature=youtu\.be&v=  # alternativ link with watch
+		  )                               # End path alternatives.
+		)                                 # End host alternatives.
+		([\w-]{10,12})                    # Allow 10-12 for 11 char youtube id.
+		.*
+		$%x';
+	$matches = array();
+	$success = preg_match( $regex_match, $embed_url, $matches );
+	$out = '';
+	if ( $success ) {
+		$img_url = 'https://i.ytimg.com/vi/' . $matches[ 1 ] . '/mqdefault.jpg';
+		$out = '<img src="' . $img_url . '" class="attachment-thumbnail size-thumbnail wp-post-image" style="max-width: 200%; width: 200%; margin-left: -50%;" alt="" srcset="' . $img_url . ' 150w, ' . $img_url . ' 335w" sizes="(max-width: 150px) 100vw, 150px">';
+		
+	} else {
+		$error = 'YouTube URL Error.';
+	}
+	
+	//global $wp_embed;
+	//$out = $wp_embed->run_shortcode( '[video]' . $embed_url . '[/video]' );
+
+	echo ! empty( $out ) ? filter_var( $out ) : '';
+}
